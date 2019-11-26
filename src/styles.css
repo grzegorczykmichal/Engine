@@ -1,0 +1,12 @@
+#app {
+  display: flex;
+  align-items: center;
+  min-height: 100vh;
+  justify-content: space-evenly;
+}
+
+canvas {
+  background: teal;
+  width: 80vmin;
+  height: 80vmin;
+}
