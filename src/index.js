@@ -27,6 +27,9 @@ class Triangle {
       Vector.From(triangle.vectors[2])
     );
   }
+  static FromArrays(a, b, c) {
+    return new Triangle(new Vector(...a), new Vector(...b), new Vector(...c));
+  }
 }
 
 class Mesh {
@@ -58,11 +61,13 @@ const makeRenderer = canvas => {
     far: 1000
   });
 
-  const startTime = Date.now();
-
+  const startTime = new Date().getMilliseconds();
+  let theta = 0;
   return cb => {
+    theta += 1 * (new Date().getMilliseconds() - startTime);
     ctx.save();
-    cb(ctx, projMatrix, WIDTH, HEIGHT, Date.now() - startTime);
+    ctx.clearRect(0, 0, WIDTH, HEIGHT); // clear canvas
+    cb(ctx, projMatrix, WIDTH, HEIGHT, theta);
     ctx.restore();
   };
 };
@@ -132,18 +137,46 @@ const canvas = document.querySelector("canvas");
 const render = makeRenderer(canvas);
 
 function repeatOften() {
-  render((ctx, projMatrix, screenWidth, screenHeight, time) => {
-    // ctx.clerRect(0, 0, screenWidth, screenHeight);
-    for (const tri of qube.triangles) {
-      const triTranslated = Triangle.From(tri);
-      triTranslated.vectors[0].z = tri.vectors[0].z + 3;
-      triTranslated.vectors[1].z = tri.vectors[1].z + 3;
-      triTranslated.vectors[2].z = tri.vectors[2].z + 3;
+  render((ctx, projMatrix, screenWidth, screenHeight, theta) => {
+    const matRotZ = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]];
+    matRotZ[0][0] = Math.cos(theta);
+    matRotZ[0][1] = Math.sin(theta);
+    matRotZ[1][0] = -Math.sin(theta);
+    matRotZ[1][1] = Math.cos(theta);
+    matRotZ[2][2] = 1;
+    matRotZ[3][3] = 1;
 
-      var newtri = new Triangle(
-        new Vector(...multiply(triTranslated.vectors[0].toArray(), projMatrix)),
-        new Vector(...multiply(triTranslated.vectors[1].toArray(), projMatrix)),
-        new Vector(...multiply(triTranslated.vectors[2].toArray(), projMatrix))
+    const matRotX = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]];
+    matRotX[0][0] = 1;
+    matRotX[1][1] = Math.cos(theta * 0.5);
+    matRotX[1][2] = Math.sin(theta * 0.5);
+    matRotX[2][1] = -Math.sin(theta * 0.5);
+    matRotX[2][2] = Math.cos(theta * 0.5);
+    matRotX[3][3] = 1;
+
+    for (const tri of qube.triangles) {
+      var newRotatedZ = Triangle.FromArrays(
+        multiply(tri.vectors[0].toArray(), matRotZ),
+        multiply(tri.vectors[1].toArray(), matRotZ),
+        multiply(tri.vectors[2].toArray(), matRotZ)
+      );
+
+      var newRotatedX = Triangle.FromArrays(
+        multiply(newRotatedZ.vectors[0].toArray(), matRotX),
+        multiply(newRotatedZ.vectors[1].toArray(), matRotX),
+        multiply(newRotatedZ.vectors[2].toArray(), matRotX)
+      );
+
+      const triTranslated = Triangle.From(newRotatedX);
+
+      triTranslated.vectors[0].z = newRotatedX.vectors[0].z + 3;
+      triTranslated.vectors[1].z = newRotatedX.vectors[1].z + 3;
+      triTranslated.vectors[2].z = newRotatedX.vectors[2].z + 3;
+
+      var newtri = Triangle.FromArrays(
+        multiply(triTranslated.vectors[0].toArray(), projMatrix),
+        multiply(triTranslated.vectors[1].toArray(), projMatrix),
+        multiply(triTranslated.vectors[2].toArray(), projMatrix)
       );
 
       newtri.vectors[0].x += 1;
@@ -173,7 +206,6 @@ function repeatOften() {
       );
     }
   });
-
   requestAnimationFrame(repeatOften);
 }
 requestAnimationFrame(repeatOften);
